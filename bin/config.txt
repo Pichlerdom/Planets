@@ -1,0 +1,7 @@
+screen_sname:planets;
+screen_height:1000;
+screen_width:1000;
+planet_speed:300;
+planet_span_r:400;
+m_max:100;
+m_min:10;
