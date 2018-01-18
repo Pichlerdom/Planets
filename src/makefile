@@ -28,7 +28,7 @@ INCLUDES =-I../include $(SDL2INCLUDES)
 OBJS = $(SRCS:.cpp=.o) $(NVSRCS:.cu=.o)
 
 # define the C source files
-SRCS = main.cpp planets_display.cpp  planets_func.cpp
+SRCS = main.cpp planets_display.cpp  planets_func.cpp planets_config.cpp
 
 # define the cuda source files
 NVSRCS = planets_cuda_kernel.cu planets_cuda_func.cu
