@@ -1,2 +1,2 @@
 cd ../bin
-./planets
+cuda-memcheck ./planets

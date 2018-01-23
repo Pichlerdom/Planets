@@ -6,8 +6,8 @@ void create_random_planet(Planet *newPlanet, PConfig *pconfig){
 	if(newPlanet == NULL){
 		printf("Could not create random planet!\n");
 	}
-	int r = (int) pconfig->planets.r;
-	float dist_from_center = (rand()%(r * 1000))/1000.0;
+	int r = (int) pconfig->planet.r;
+	float dist_from_center = (rand()%(r * 1000))/1000.0+100;
 	float alpha = (((rand()%(90*100))/100.0) * M_PI)/180.0;
 	newPlanet->pos.x = (pconfig->screen.dim.width/2.0) + sinf(alpha) * dist_from_center * pow(-1,rand()%2);
 	newPlanet->pos.y = (pconfig->screen.dim.height/2.0) + cosf(alpha) * dist_from_center * pow(-1,rand()%2);
@@ -16,21 +16,21 @@ void create_random_planet(Planet *newPlanet, PConfig *pconfig){
 	float dx = pconfig->screen.dim.height/2 - newPlanet->pos.y;
 	
 	float dist = sqrt(dy * dy + dx * dx)*__DIST;
-	float speed = pconfig->planets.speed;
+	float speed = pconfig->planet.speed;
 	
 	newPlanet->dir.x = dx * (speed / (dist * dist));
 	newPlanet->dir.y = dy * (speed / (dist * dist));
 
-	int m_max = (int)pconfig->planets.mass_max;
-	int m_min = (int)pconfig->planets.mass_min;
+	int m_max = (int)pconfig->planet.mass_max;
+	int m_min = (int)pconfig->planet.mass_min;
 	newPlanet->mass = (rand()%((m_max-m_min)*1000))/1000.0+m_min;
 	if(rand()%1000 == 0){
-		newPlanet->mass *= 5000;
+		//newPlanet->mass *= 5000;
 	}
-	newPlanet->r = log2f(newPlanet->mass * newPlanet->mass) * 0.18;
+	newPlanet->r = log2f(newPlanet->mass) * 0.18;
 }
 
-PlanetsArr* init_planets(PConfig *pconfig){
+PlanetsArr* init_planets(){
 	PlanetsArr* container = (PlanetsArr*) calloc(1, sizeof(PlanetsArr));
 	if(container == NULL){
 		printf("Could not allocate memory for the Planets data structur!\n");
@@ -62,9 +62,9 @@ void fill_planets(PlanetsArr* container, PConfig *pconfig){
 	container->planets[0].dir.x = 0;
 	container->planets[0].dir.y = 0;
 
-	container->planets[0].mass = 2000000;
+	container->planets[0].mass = 200000000;
 
-	container->planets[0].r = log2f(container->planets[0].mass * container->planets[0].mass) * 0.18;
+	container->planets[0].r = log2f(container->planets[0].mass ) * 0.18;
 	container->number++;
 
 	for(int i = 1; i < NUMBER_OF_PLANETS; i++){

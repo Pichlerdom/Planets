@@ -17,7 +17,7 @@ Display* init_display(PConfig *pconfig);
 
 void* main_display_loop(void * cont);
 
-void draw_planets(Display *display, PlanetsArr *container);
+void draw_planets(Display *display, PlanetsArr *container, float scale);
 
 void draw_planet(Display *display, Vec *pos, float r);
 

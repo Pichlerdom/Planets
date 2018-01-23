@@ -23,18 +23,19 @@ typedef struct{
 
 typedef struct {
 	struct{
-		char* name;
+		const char* name;
 		struct{
 			unsigned int height;
 			unsigned int width;
 		}dim;
 	}screen;
+	float scale;
 	struct{
 		float speed;
 		float r;
 		float mass_max;
 		float mass_min;
-	}planets;
+	}planet;
 }PConfig;
 
 typedef struct{

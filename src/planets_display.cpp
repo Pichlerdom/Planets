@@ -54,6 +54,7 @@ void* main_display_loop(void* arguments){
 	uint32_t currTime = SDL_GetTicks();
 	uint32_t frameTime = 0u;
 
+
 	
 	while(!container->quit){
 		currTime = SDL_GetTicks();		
@@ -67,24 +68,37 @@ void* main_display_loop(void* arguments){
 				case SDL_QUIT:
 					container->quit = true;
 				break;
+				//mouse wheel events
+				case SDL_MOUSEWHEEL:	
+					if(e.wheel.y == 1){
+						pconfig->scale *= 1.1;
+					}else if(e.wheel.y == -1){
+						pconfig->scale /= 1.1;
+					}
+				break;
+				case SDL_MOUSEBUTTONUP:
+					if(e.button.type == SDL_BUTTON_LEFT){
+						pdisplay->pos.x = e.button.x;
+						pdisplay->pos.y = e.button.y;
+					}
+				break;
 			}
 		}
 		
+	pdisplay->pos.y = container->planets[find_biggest_mass(container)].pos.y * pconfig->scale - pconfig->screen.dim.height/2;
+	pdisplay->pos.x = container->planets[find_biggest_mass(container)].pos.x * pconfig->scale- pconfig->screen.dim.width/2;
+
 		//Clear screen
 		SDL_SetRenderDrawColor( pdisplay->renderer, 0x00, 0x00, 0x00, 0xFF );
 		SDL_RenderClear( pdisplay->renderer );
-
-		pdisplay->pos.y = container->planets[find_biggest_mass(container)].pos.y - pconfig->screen.dim.height/2;
-		pdisplay->pos.x = container->planets[find_biggest_mass(container)].pos.x - pconfig->screen.dim.width/2;
-		draw_planets(pdisplay, container);   
-
+		draw_planets(pdisplay, container, pconfig->scale);
 		//Update screen
 		SDL_RenderPresent( pdisplay->renderer );
 
 		//FPS stuff
 		frameTime = SDL_GetTicks() - currTime;
 		
-		//printf("disp:%d\n", frameTime);
+		printf("disp:%d\n", frameTime);
 		if(frameTime > MS_PER_FRAME){
 			frameTime = MS_PER_FRAME;
 		}
@@ -95,22 +109,26 @@ void* main_display_loop(void* arguments){
 	printf("Display thread exited:\n");
 
 	close(pdisplay);
+	return NULL;
 
 }
 
 
-void draw_planets(Display *display, PlanetsArr *container){	
+void draw_planets(Display *display, PlanetsArr *container, float scale){
 	pthread_mutex_lock(&container->planetsMutex);
+	for(int i = 0; i <  container->number; i++){
 	
-	for(int i = 0; i < container->number; i++){
 		Vec pos = container->planets[i].pos;
+		pos.x *= scale;
+		pos.y *= scale;
 		Vec dir = container->planets[i].dir;
-		dir.x *= __MOVE * 1;
-		dir.y *= __MOVE * 1;
+		dir.x *= __MOVE * 100;
+		dir.y *= __MOVE * 100;
 		float r = container->planets[i].r;
 		
+		
 		SDL_SetRenderDrawColor(display->renderer, 0xFF, 0xFF, 0xFF, 0xFF);
-		draw_planet(display, &pos, r);
+		draw_planet(display, &pos, r * scale);
 		if(container->planets[i].mass > 0){ 
 			SDL_SetRenderDrawColor(display->renderer, 0xFF, 0x00, 0xFF, 0x55);
 			SDL_RenderDrawLine(display->renderer,
@@ -119,6 +137,7 @@ void draw_planets(Display *display, PlanetsArr *container){
 		}
 	}
 	pthread_mutex_unlock(&container->planetsMutex);
+
 	
 }
 
