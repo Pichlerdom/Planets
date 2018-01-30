@@ -7,7 +7,7 @@ void create_random_planet(Planet *newPlanet, PConfig *pconfig){
 		printf("Could not create random planet!\n");
 	}
 	int r = (int) pconfig->planet.r;
-	float dist_from_center = (rand()%(r * 1000))/1000.0+100;
+	float dist_from_center = (rand()%(r * 1000))/1000.0+__MIN_R;
 	float alpha = (((rand()%(90*100))/100.0) * M_PI)/180.0;
 	newPlanet->pos.x = (pconfig->screen.dim.width/2.0) + sinf(alpha) * dist_from_center * pow(-1,rand()%2);
 	newPlanet->pos.y = (pconfig->screen.dim.height/2.0) + cosf(alpha) * dist_from_center * pow(-1,rand()%2);
@@ -25,7 +25,7 @@ void create_random_planet(Planet *newPlanet, PConfig *pconfig){
 	int m_min = (int)pconfig->planet.mass_min;
 	newPlanet->mass = (rand()%((m_max-m_min)*1000))/1000.0+m_min;
 	if(rand()%1000 == 0){
-		//newPlanet->mass *= 5000;
+		newPlanet->mass *= 5000;
 	}
 	newPlanet->r = log2f(newPlanet->mass) * 0.18;
 }
@@ -62,7 +62,7 @@ void fill_planets(PlanetsArr* container, PConfig *pconfig){
 	container->planets[0].dir.x = 0;
 	container->planets[0].dir.y = 0;
 
-	container->planets[0].mass = 200000000;
+	container->planets[0].mass = __SEEDMASS;
 
 	container->planets[0].r = log2f(container->planets[0].mass ) * 0.18;
 	container->number++;

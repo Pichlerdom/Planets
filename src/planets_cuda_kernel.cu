@@ -24,10 +24,9 @@ __global__ void hit_detection(Planet* d_planets){
 
 	if( mass2 > 0 && mass1 > 0 && r1 > r2 && 
 		dist < (r2 + r1)){
-		
-		float mass = mass1/(mass2 + mass1);
-		d_planets[x].dir.x -= (d_planets[x].dir.x - d_planets[y].dir.x)  * mass;
-		d_planets[x].dir.y -= (d_planets[x].dir.y - d_planets[y].dir.y)  * mass;
+	
+		d_planets[x].dir.x = (d_planets[x].dir.x * mass1 + d_planets[y].dir.x * mass2)/(mass2 + mass1);
+		d_planets[x].dir.y = (d_planets[x].dir.y * mass1 + d_planets[y].dir.y * mass2)/(mass2 + mass1);
 		d_planets[x].mass += d_planets[y].mass;
 		
 		d_planets[x].r = log2f(d_planets[x].mass) * 0.18;
@@ -48,26 +47,26 @@ __global__ void calculate_f_sum_reduction(Planet *planets, Vec* d_f){
 	unsigned int gx = blockIdx.x * blockDim.x + tx;
 	unsigned int gy = blockIdx.y * blockDim.y + ty;
 
-	unsigned int i = (gy * gridDim.y) + blockIdx.y; 	
+	unsigned int i = (gy * gridDim.y) + blockIdx.x; 	
 	Planet planet1 = planets[gx];
 	Planet planet2 = planets[gy];
 
+ 
 	sdata[ty * blockDim.x + tx] = calculate_f(planet1, planet2);
-	
+
 	__syncthreads();
 	for(unsigned int swap = blockDim.x/2;swap > 0;swap >>= 1){
 		if(tx < swap){
-			sdata[ty*blockDim.x + tx].x -= sdata[ty*blockDim.x + tx + swap].x;
-			sdata[ty*blockDim.x + tx].y -= sdata[ty*blockDim.x + tx + swap].y;
+			sdata[ty*blockDim.x + tx].x += sdata[ty*blockDim.x + tx + swap].x;
+			sdata[ty*blockDim.x + tx].y += sdata[ty*blockDim.x + tx + swap].y;
 		}
 		__syncthreads();
 	}
-	float mass = planets[gy].mass/(planets[gx].mass * planets[gy].mass); 
 
 	__syncthreads();
 	if(tx == 0){
-		d_f[i].x = sdata[ty*blockDim.x].x * mass;
-		d_f[i].y = sdata[ty*blockDim.x].y * mass;
+		d_f[i].x = sdata[ty*blockDim.x].x;
+		d_f[i].y = sdata[ty*blockDim.x].y;
 
 	}
 }
@@ -84,9 +83,6 @@ __global__ void calculate_f_sum(Planet* d_planets,Vec *d_f){
 		sum_x += d_f[gx * gridDim.x + i].x;
 		sum_y += d_f[gx * gridDim.x + i].y;
 	}	
-	sum_x /=d_planets[gx].mass;
-	sum_y /=d_planets[gx].mass;
-
 	__syncthreads();
 	if(sum_x != 0.0){
 		d_planets[gx].dir.x += sum_x;
@@ -116,8 +112,8 @@ __device__ Vec calculate_f(Planet p1, Planet p2){
 	float dy = (p1.pos.y - p2.pos.y)/dist;
 	Vec f;
 
-	if(p2.mass > 0 && p2.mass > 0 && dist != 0.0){
-		float g = (__G * p1.mass * p2.mass)/(dist * dist);
+	if(p1.mass > 0 && p2.mass > 0 && dist != 0.0){
+		float g = (__G * p1.mass)/(dist * dist);
 		f.x = dx * g;
 		f.y = dy * g;
 	}else{

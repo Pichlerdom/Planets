@@ -14,7 +14,7 @@ NVCFLAGS =-g -lineinfo -maxrregcount=0 -gencode=arch=compute_50,code=\"sm_50,com
 LFLAGS = $(SDL2LFLAGS)
 
 #define library names
-LIBS = -lcuda -lcudart -lSDL2 -lSDL2_image -lm -lpthread
+LIBS = -lcuda -lcudart -lSDL2 -lSDL2_image -lSDL2_ttf -lm -lpthread
 #define SDL2 Options
 SDL2CFLAGS = -D_REENRRANT
 SDL2INCLUDES = -I/usr/include/SDL2

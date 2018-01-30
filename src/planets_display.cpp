@@ -98,7 +98,7 @@ void* main_display_loop(void* arguments){
 		//FPS stuff
 		frameTime = SDL_GetTicks() - currTime;
 		
-		printf("disp:%d\n", frameTime);
+		//printf("disp:%d\n", frameTime);
 		if(frameTime > MS_PER_FRAME){
 			frameTime = MS_PER_FRAME;
 		}
@@ -122,13 +122,15 @@ void draw_planets(Display *display, PlanetsArr *container, float scale){
 		pos.x *= scale;
 		pos.y *= scale;
 		Vec dir = container->planets[i].dir;
-		dir.x *= __MOVE * 100;
-		dir.y *= __MOVE * 100;
+		dir.x *= __MOVE * 10;
+		dir.y *= __MOVE * 10;
 		float r = container->planets[i].r;
+		int blockn = (int) (i / PLANET_BLOCK_N) + 10;
 		
+		SDL_SetRenderDrawColor(display->renderer, blockn * 1000, blockn * 10, blockn * 100, 0xFF);
 		
-		SDL_SetRenderDrawColor(display->renderer, 0xFF, 0xFF, 0xFF, 0xFF);
 		draw_planet(display, &pos, r * scale);
+		
 		if(container->planets[i].mass > 0){ 
 			SDL_SetRenderDrawColor(display->renderer, 0xFF, 0x00, 0xFF, 0x55);
 			SDL_RenderDrawLine(display->renderer,
@@ -146,6 +148,9 @@ void draw_planet(Display *display, Vec *pos, float r){
 	int radius = r;
 	pos->x -= display->pos.x;
 	pos->y -= display->pos.y;
+	
+	SDL_RenderDrawPoint(display->renderer, pos->x, pos->y);
+
 	for (int w = 0; w < radius * 2; w++)
 	{
 		for (int h = 0; h < radius * 2; h++)
@@ -170,3 +175,6 @@ void close(Display* display){
 
 	free(display);
 }
+
+
+
