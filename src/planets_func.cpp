@@ -25,7 +25,7 @@ void create_random_planet(Planet *newPlanet, PConfig *pconfig){
 	int m_min = (int)pconfig->planet.mass_min;
 	newPlanet->mass = (rand()%((m_max-m_min)*1000))/1000.0+m_min;
 	if(rand()%1000 == 0){
-		newPlanet->mass *= 5000;
+		newPlanet->mass *= 1000;
 	}
 	newPlanet->r = log2f(newPlanet->mass) * 0.18;
 }
@@ -59,7 +59,7 @@ void fill_planets(PlanetsArr* container, PConfig *pconfig){
 	//point to the array that holdes all the planet structures
 	container->planets[0].pos.x = pconfig->screen.dim.width/2;
 	container->planets[0].pos.y = pconfig->screen.dim.height/2;
-	container->planets[0].dir.x = 0;
+	container->planets[0].dir.x = 20;
 	container->planets[0].dir.y = 0;
 
 	container->planets[0].mass = __SEEDMASS;

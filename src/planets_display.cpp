@@ -99,6 +99,7 @@ void* main_display_loop(void* arguments){
 		frameTime = SDL_GetTicks() - currTime;
 		
 		//printf("disp:%d\n", frameTime);
+
 		if(frameTime > MS_PER_FRAME){
 			frameTime = MS_PER_FRAME;
 		}
