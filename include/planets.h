@@ -5,6 +5,7 @@
 
 #include "structures.h"
 
+#include "quadtree.h"
 #include "planets_config.h"
 #include "planets_display.h"
 #include "planets_func.h"

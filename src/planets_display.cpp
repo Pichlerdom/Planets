@@ -24,7 +24,7 @@ Display* init_display(PConfig *pconfig){
         printf("Unable to create Window! SDL_Error: %s\n",SDL_GetError());
         return NULL;
     }
-	display->renderer = SDL_CreateRenderer( display->window, -1, SDL_RENDERER_ACCELERATED );
+	display->renderer = SDL_CreateRenderer( display->window, -1, SDL_RENDERER_SOFTWARE );
 	if( display->renderer == NULL )
 	{
 		printf( "Renderer could not be created! SDL Error: %s\n", SDL_GetError() );
@@ -53,15 +53,30 @@ void* main_display_loop(void* arguments){
 	SDL_Event e;
 	uint32_t currTime = SDL_GetTicks();
 	uint32_t frameTime = 0u;
+	
+	TTF_Init();
+	TTF_Font *font = TTF_OpenFont("RobotoMono-Medium.ttf", 12);
+	SDL_Texture *texture;
+	SDL_Rect textrect;
 
+	char *tempstr = (char*) calloc(256,sizeof(char));
+	
+	Vec screenpos;
 
 	
+	screenpos.y = container->planets[find_biggest_mass(container)].pos.y * pconfig->scale - pconfig->screen.dim.height/2;
+	screenpos.x = container->planets[find_biggest_mass(container)].pos.x * pconfig->scale- pconfig->screen.dim.width/2;
+
+	int mousex = 0;
+int mousey = 0;
+int retval;
 	while(!container->quit){
 		currTime = SDL_GetTicks();		
 		
 		//event handling loop
 		while(SDL_PollEvent(&e) != 0){
 
+			SDL_GetMouseState(&mousex, &mousey);
 			switch(e.type){
 			
 				//close application
@@ -77,21 +92,52 @@ void* main_display_loop(void* arguments){
 					}
 				break;
 				case SDL_MOUSEBUTTONUP:
-					if(e.button.type == SDL_BUTTON_LEFT){
-						pdisplay->pos.x = e.button.x;
-						pdisplay->pos.y = e.button.y;
-					}
+					screenpos.x += (mousex / pconfig->scale) - pdisplay->pos.x - DEFAULT_SCREEN_WIDTH/2;
+					screenpos.y += (mousey / pconfig->scale) - pdisplay->pos.y  - DEFAULT_SCREEN_HEIGHT/2;
 				break;
 			}
 		}
+
 		
-	pdisplay->pos.y = container->planets[find_biggest_mass(container)].pos.y * pconfig->scale - pconfig->screen.dim.height/2;
-	pdisplay->pos.x = container->planets[find_biggest_mass(container)].pos.x * pconfig->scale- pconfig->screen.dim.width/2;
+		pdisplay->pos.y = (screenpos.y* pconfig->scale  - pconfig->screen.dim.height/2);
+		pdisplay->pos.x = (screenpos.x* pconfig->scale - pconfig->screen.dim.width/2);
+
 
 		//Clear screen
 		SDL_SetRenderDrawColor( pdisplay->renderer, 0x00, 0x00, 0x00, 0xFF );
-		SDL_RenderClear( pdisplay->renderer );
+		SDL_RenderClear( pdisplay->renderer);
+		
+	
+		retval = pthread_mutex_lock(&(args->qtreeMutex));
+		printf("%d\n",args->qtree->arr_size);
+		
+		if(args->qtree->arr_size > 0){
+
+			float bound[4] = {args->qtree->size,-args->qtree->size,args->qtree->size,-args->qtree->size};
+			draw_QTree(pdisplay, args->qtree, pconfig->scale, bound,0);
+
+		}	
+		
+		pthread_mutex_unlock(&(args->qtreeMutex));
+
 		draw_planets(pdisplay, container, pconfig->scale);
+		
+		SDL_SetRenderDrawColor( pdisplay->renderer, 0xff, 0xff, 0xff, 0xFF );
+		sprintf(tempstr,"FPS:%.2f",1000.0/args->calctime);
+		get_text_and_rect(pdisplay->renderer,
+						  10, 10,
+						  tempstr,
+		font, &texture, &textrect);
+		SDL_RenderCopy(pdisplay->renderer, texture, NULL, &textrect);
+		
+		SDL_SetRenderDrawColor( pdisplay->renderer, 0xff, 0xff, 0xff, 0xFF );
+		sprintf(tempstr,"Number:%d",  container->number);
+		get_text_and_rect(pdisplay->renderer,
+						  10, 30,
+						  tempstr,
+		font, &texture, &textrect);
+		SDL_RenderCopy(pdisplay->renderer, texture, NULL, &textrect);
+		
 		//Update screen
 		SDL_RenderPresent( pdisplay->renderer );
 
@@ -113,7 +159,29 @@ void* main_display_loop(void* arguments){
 	return NULL;
 
 }
+/*
+- x, y: upper left corner.
+- texture, rect: outputs.
+*/
+void get_text_and_rect(	SDL_Renderer *renderer, 
+						int x, int y,
+						char *text,
+						TTF_Font *font, SDL_Texture **texture, SDL_Rect *rect) {
+    int text_width;
+    int text_height;
+    SDL_Surface *surface;
+    SDL_Color textColor = {255, 255, 255, 0};
 
+    surface = TTF_RenderText_Solid(font, text, textColor);
+    *texture = SDL_CreateTextureFromSurface(renderer, surface);
+    text_width = surface->w;
+    text_height = surface->h;
+    SDL_FreeSurface(surface);
+    rect->x = x;
+    rect->y = y;
+    rect->w = text_width;
+    rect->h = text_height;
+}
 
 void draw_planets(Display *display, PlanetsArr *container, float scale){
 	pthread_mutex_lock(&container->planetsMutex);
@@ -165,7 +233,52 @@ void draw_planet(Display *display, Vec *pos, float r){
 		}
 	}
 }
+void draw_QTree(Display *display, QTree *qtree ,float scale, float bound[4], int curr){
+	if(qtree->arr[curr].mass == -1 ||
+		qtree->arr[curr].mass == 0 ){
+		
+		SDL_SetRenderDrawColor(display->renderer, 0x00, 0xff, 0xff, 0xff);
+	}else if (qtree->arr[curr].mass == -2){
+		float bounds[4];
+		bounds[0] = bound[0];
+		bounds[1] = (bound[0] + bound[1])/2.0;
+		bounds[2] = bound[2];
+		bounds[3] = (bound[3] + bound[2])/2.0; 
+ 
+		draw_QTree(display,qtree, scale,bounds, curr * 4 + 1);
+		
+		bounds[0] = bound[0];
+		bounds[1] = (bound[0] + bound[1])/2.0;
+		bounds[2] = (bound[3] + bound[2])/2.0;
+		bounds[3] = bound[3];  
+		draw_QTree(display,qtree, scale,bounds, curr * 4 + 2);
+		
+		
+		bounds[0] = (bound[0] + bound[1])/2.0;
+		bounds[1] = bound[1];
+		bounds[2] = bound[2];
+		bounds[3] = (bound[3] + bound[2])/2.0;  
+		draw_QTree(display,qtree,scale, bounds, curr * 4 + 3);
+		
+		bounds[0] = (bound[0] + bound[1])/2.0; 
+		bounds[1] = bound[1];
+		bounds[2] = (bound[3] + bound[2])/2.0;
+		bounds[3] = bound[3]; 
+		draw_QTree(display,qtree,scale,bounds, curr * 4 + 4);
 
+		SDL_SetRenderDrawColor(display->renderer, 0xff, 0x00, 0xff, 0xff);
+
+
+	} else {
+		SDL_SetRenderDrawColor(display->renderer, 0x00, 0xff, 0x00, 0xff);
+	}
+	SDL_Rect rect;
+	rect.x = bound[3] * scale - display->pos.x;  
+	rect.y = bound[0] * scale - display->pos.y;
+	rect.w = (bound[2] - bound[3]) * scale;
+	rect.h = (bound[1] - bound[0]) * scale;
+	SDL_RenderDrawRect(display->renderer, &rect);
+}
 
 void close(Display* display){
     

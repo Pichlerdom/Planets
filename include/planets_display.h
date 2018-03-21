@@ -23,5 +23,11 @@ void draw_planet(Display *display, Vec *pos, float r);
 
 void close(Display *display);
 
+void draw_QTree(Display *display, QTree *qtree ,float scale, float bound[4], int curr);
 
+
+void get_text_and_rect(	SDL_Renderer *renderer, 
+						int x, int y,
+						char *text,
+						TTF_Font *font, SDL_Texture **texture, SDL_Rect *rect);
 #endif

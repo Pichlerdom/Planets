@@ -1,5 +1,5 @@
 #include "planets.h"
-
+#include "quadtree.h"
 
 void move_planets(PlanetsArr* container, PConfig *pconfig, GPU_Mem *gpu_mem){
 
@@ -11,7 +11,7 @@ void move_planets(PlanetsArr* container, PConfig *pconfig, GPU_Mem *gpu_mem){
 	
 	realloc_cuda(container, gpu_mem);
 
-	printf("sa:%d  n:%d\n",container->size_arr,container->number);
+//	printf("sa:%d  n:%d\n",container->size_arr,container->number);
 	/*for(int i = 0; i < container->size_arr / PLANET_BLOCK_N; i++){
 		printf("\n x:");
 		for(int j = 0; j < PLANET_BLOCK_N; j++){
@@ -37,21 +37,15 @@ void move_planets(PlanetsArr* container, PConfig *pconfig, GPU_Mem *gpu_mem){
 
 	move_planets_kernel<<<grid.y, block>>>(gpu_mem->d_planets);
 	
-	hit_detection<<<grid, block>>>(gpu_mem->d_planets);
-
+	//hit_detection<<<grid, block>>>(gpu_mem->d_planets);
+		
 	cudaMemcpy(	(void *)h_planets,
 				(void *)gpu_mem->d_planets,
 				numberOfPlanets * sizeof(Planet),
 				cudaMemcpyDeviceToHost);
-	
 //	cudaMemcpy((void*)h_dist, (void *)d_dist, numberOfPlanets * sizeof(float),cudaMemcpyDeviceToHost);	
 
-	pthread_mutex_lock(&container->planetsMutex);
 
-	remove_dead_planets(container);
-	
-	
-	pthread_mutex_unlock(&container->planetsMutex);
 	
 
 }
@@ -124,22 +118,42 @@ void *main_calc_loop(void *arguments){
 	ThreadArgs *args = (ThreadArgs*) arguments;
 	PlanetsArr *container = args->container;
 	PConfig *pconfig = args->pconfig;
-	
+	uint32_t *calctime = &(args->calctime);
+
 	uint32_t currTime = SDL_GetTicks();
 	uint32_t frameTime = 0u;
 	GPU_Mem gpu_mem;
 	gpu_mem.size_arr = 0;
+	args->qtree = init_qtree(__QTREE_SIZE);
+	QTree *qtree = args->qtree;
+
 	while(!container->quit){
 		
 		currTime = SDL_GetTicks();
-		
+			
 		move_planets(container, pconfig, &gpu_mem);
+		
+	
+		pthread_mutex_lock(&(args->qtreeMutex));
+		qtree = clear_qtree(qtree);
+		construct_qtree(qtree, container->planets, container->number);
+
+		args->qtree = qtree;
+		pthread_mutex_unlock(&(args->qtreeMutex));
+
+		container->number = collaps_tree(qtree, container);
+
+	
+	
+
+	
 
 		//FPS stuff
 		frameTime = SDL_GetTicks() - currTime;
 		
-	
-		printf("calc:%d\n", frameTime);	
+
+	//	printf("calc:%d\n", frameTime);	
+		*calctime = frameTime;
 		if(frameTime > MS_PER_TICK){
 			frameTime = MS_PER_TICK;
 		}

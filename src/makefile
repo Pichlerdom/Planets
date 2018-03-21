@@ -5,7 +5,7 @@ CC = g++
 NVCC = nvcc 
 
 # define c++ compiler flags
-CFLAGS =-g -O2 -Wall $(SDL2CFLAGS)
+CFLAGS =-g -pthread -Wall $(SDL2CFLAGS) 
 
 #define cuda compiler flags
 NVCFLAGS =-g -lineinfo -maxrregcount=0 -gencode=arch=compute_50,code=\"sm_50,compute_50\" $(SDL2CFLAGS)
@@ -27,7 +27,7 @@ INCLUDES =-I../include $(SDL2INCLUDES)
 OBJS = $(SRCS:.cpp=.o) $(NVSRCS:.cu=.o)
 
 # define the C source files
-SRCS = main.cpp planets_display.cpp  planets_func.cpp planets_config.cpp
+SRCS = main.cpp planets_display.cpp  planets_func.cpp planets_config.cpp quadtree.cpp
 
 # define the cuda source files
 NVSRCS = planets_cuda_kernel.cu planets_cuda_func.cu
@@ -38,9 +38,9 @@ MAIN = ../bin/planets
 # add .cu suffix so we can compile cuda files
 .SUFFIXES :.cu .cpp
 
-.PHONY:all clean 
+.PHONY:all  
 
-all:$(MAIN)
+all:$(MAIN) clean
 
 
 $(MAIN): $(OBJS)

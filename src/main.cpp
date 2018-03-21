@@ -16,9 +16,12 @@ int main(int agrc, char* args[])
 	arguments->container = container;
 	arguments->pconfig = pconfig;
 	pthread_t display_t, calc_t;
+	pthread_mutex_init(&(arguments->qtreeMutex),NULL);	
+	pthread_mutex_init(&(arguments->container->planetsMutex),NULL);	
 
-	pthread_create(&display_t,NULL,&main_display_loop,arguments);
+
 	pthread_create(&calc_t,NULL,&main_calc_loop,arguments);
+	pthread_create(&display_t,NULL,&main_display_loop,arguments);
 
 
 	pthread_join(display_t,NULL);

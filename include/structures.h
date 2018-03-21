@@ -35,8 +35,18 @@ typedef struct {
 }PConfig;
 
 typedef struct{
+	int arr_size;
+	int tree_size;
+	Planet *arr;
+	float size;
+}QTree;
+
+typedef struct{
 	PlanetsArr *container;
 	PConfig *pconfig;
+	uint32_t calctime;
+	QTree *qtree;
+	pthread_mutex_t qtreeMutex;
 }ThreadArgs;
 
 typedef struct {
