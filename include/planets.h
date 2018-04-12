@@ -3,6 +3,8 @@
 
 #include "includes.h"
 
+#define __QTREE_PLANETS_PER_QUAD 10
+
 #include "structures.h"
 
 #include "quadtree.h"

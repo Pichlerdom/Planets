@@ -11,48 +11,34 @@ void move_planets(PlanetsArr* container, PConfig *pconfig, GPU_Mem *gpu_mem){
 	
 	realloc_cuda(container, gpu_mem);
 
-//	printf("sa:%d  n:%d\n",container->size_arr,container->number);
-	/*for(int i = 0; i < container->size_arr / PLANET_BLOCK_N; i++){
-		printf("\n x:");
-		for(int j = 0; j < PLANET_BLOCK_N; j++){
-			printf("%.1f|",container->planets[i*PLANET_BLOCK_N + j].dir.x);
-		}
-		printf("\n y:");
-		for(int j = 0; j < PLANET_BLOCK_N; j++){
-			printf("%.1f|",container->planets[i*PLANET_BLOCK_N + j].dir.y);
-		}
-		printf("\n\n");
-	}*/
-	//	float *h_dist = (float *)malloc(numberOfPlanets * sizeof(float));	
-
+pthread_mutex_lock(&(container->planetsMutex));
+	
 	cudaThreadSynchronize();
 		cudaMemcpy((void*)gpu_mem->d_planets,
 				   (void *)h_planets,
 					gpu_mem->size_arr * sizeof(Planet),
 				   cudaMemcpyHostToDevice);
-
+pthread_mutex_unlock(&(container->planetsMutex));
+	
 	calculate_f_sum_reduction<<<grid,block>>>(gpu_mem->d_planets,gpu_mem->d_f);
 
 	calculate_f_sum<<<grid.x,block.x>>>(gpu_mem->d_planets,gpu_mem->d_f);
 
 	move_planets_kernel<<<grid.y, block>>>(gpu_mem->d_planets);
 	
-	//hit_detection<<<grid, block>>>(gpu_mem->d_planets);
-		
+	pthread_mutex_lock(&(container->planetsMutex));
+			
 	cudaMemcpy(	(void *)h_planets,
 				(void *)gpu_mem->d_planets,
 				numberOfPlanets * sizeof(Planet),
 				cudaMemcpyDeviceToHost);
-//	cudaMemcpy((void*)h_dist, (void *)d_dist, numberOfPlanets * sizeof(float),cudaMemcpyDeviceToHost);	
-
-
-	
-
+	pthread_mutex_unlock(&(container->planetsMutex));
+		
 }
 
 void realloc_cuda(PlanetsArr* container, GPU_Mem *gpu_mem){
 	if(container->size_arr != gpu_mem->size_arr){	
-		printf("cuda realloc:%d !\n",gpu_mem->size_arr);
+
 		cudaFree((void **)(gpu_mem->d_f));
 		cudaFree((void **)(gpu_mem->d_planets));
 		gpu_mem->size_arr = container->size_arr;
@@ -72,13 +58,6 @@ void realloc_cuda(PlanetsArr* container, GPU_Mem *gpu_mem){
 
 void remove_dead_planets(PlanetsArr* container){
 	int c = container->size_arr;
-	/*printf("---------------------------------------\n");
-	for(int i = 0; i < container->size_arr / PLANET_BLOCK_N; i++){
-		for(int j = 0; j < PLANET_BLOCK_N; j++){
-			printf("%4.1f|",container->planets[i*PLANET_BLOCK_N + j].mass);
-		}
-		printf("\n");
-	}*/
 	for(int i = 0; i < c ;i++){
 		if(container->planets[i].mass < 0.0 ){
 			for(int j = container->size_arr - 1; j >= i; j--){
@@ -103,12 +82,6 @@ void remove_dead_planets(PlanetsArr* container){
 		container->planets = (Planet*) realloc(container->planets,container->size_arr * sizeof(Planet));
 
 	}
-	/*for(int i = 0; i < container->size_arr / PLANET_BLOCK_N; i++){
-		for(int j = 0; j < PLANET_BLOCK_N; j++){
-			printf("%4.1f|",container->planets[i*PLANET_BLOCK_N + j].mass);
-		}
-		printf("\n");
-	}*/
 }
 
 
@@ -118,41 +91,34 @@ void *main_calc_loop(void *arguments){
 	ThreadArgs *args = (ThreadArgs*) arguments;
 	PlanetsArr *container = args->container;
 	PConfig *pconfig = args->pconfig;
+
+	pthread_t qtree_thread;	
+	pthread_create(&qtree_thread,NULL,&main_qtree_loop,arguments);
+	
 	uint32_t *calctime = &(args->calctime);
 
 	uint32_t currTime = SDL_GetTicks();
 	uint32_t frameTime = 0u;
 	GPU_Mem gpu_mem;
 	gpu_mem.size_arr = 0;
-	args->qtree = init_qtree(__QTREE_SIZE);
-	QTree *qtree = args->qtree;
+
 
 	while(!container->quit){
 		
 		currTime = SDL_GetTicks();
-			
-		move_planets(container, pconfig, &gpu_mem);
 		
-	
-		pthread_mutex_lock(&(args->qtreeMutex));
-		qtree = clear_qtree(qtree);
-		construct_qtree(qtree, container->planets, container->number);
+		move_planets(container, pconfig, &gpu_mem);
 
-		args->qtree = qtree;
-		pthread_mutex_unlock(&(args->qtreeMutex));
+		pthread_mutex_lock(&(container->planetsMutex));
+		
+		remove_dead_planets(container);
+		
+		pthread_mutex_unlock(&(container->planetsMutex));
 
-		container->number = collaps_tree(qtree, container);
-
-	
-	
-
-	
 
 		//FPS stuff
 		frameTime = SDL_GetTicks() - currTime;
 		
-
-	//	printf("calc:%d\n", frameTime);	
 		*calctime = frameTime;
 		if(frameTime > MS_PER_TICK){
 			frameTime = MS_PER_TICK;
@@ -163,3 +129,42 @@ void *main_calc_loop(void *arguments){
 	printf("Calc thread exited:\n");
 	return NULL;
 }
+
+
+void *main_qtree_loop(void *arguments){
+
+	ThreadArgs *args = (ThreadArgs*) arguments;
+	PlanetsArr *container = args->container;
+
+	args->qtree = init_qtree(__QTREE_SIZE);
+	QTree *qtree = args->qtree;
+		
+	uint32_t currTime = SDL_GetTicks();
+	uint32_t frameTime = 0u;
+	
+	pthread_mutex_lock(&(args->qtreeMutex));
+
+	while(!container->quit){
+		currTime = SDL_GetTicks();
+
+		pthread_mutex_lock(&(container->planetsMutex));
+
+			
+		construct_qtree(qtree, container->planets, container->number);
+
+		pthread_mutex_unlock(&(args->qtreeMutex));
+
+		pthread_mutex_unlock(&(container->planetsMutex));
+	
+		SDL_Delay(1);
+		pthread_mutex_lock(&(args->qtreeMutex));
+		args->qtree = qtree;
+		clear_qtree(qtree);
+	
+		frameTime = SDL_GetTicks() - currTime;
+		
+		args->qtree_time = frameTime;
+	}
+
+}
+

@@ -1,9 +1,3 @@
-
-
-
-
-
-
 #include "planets.h"
 
 

@@ -1,119 +1,163 @@
 
 #include "quadtree.h"
 
+#define QTREE_ARR_SIZE 244140625
+#define QTREE_MAX_LEVEL 13
+
 
 int get_quad(Vec pos, float bound[4]);
 
 int set_bound_get_quad(Vec pos, float bound[4]);
 
 QTree* init_qtree(float size){
-	QTree *qtree = (QTree*) calloc(1, sizeof(QTree));
-	qtree->arr = (Planet*) calloc(1,sizeof(Planet));
-	qtree->arr_size = 1;
-	qtree->tree_size = 0;
+	QTree *qtree = (QTree*) calloc(32, sizeof(QTree));
+	qtree->arr = (QTree_Node*) calloc(QTREE_ARR_SIZE, sizeof(32));
+
+	qtree->number_of_nodes = 0;
+	qtree->arr_size = 32;
 	qtree->size = size;
-	qtree->arr[0].mass = -1;
+	qtree->max_level = QTREE_MAX_LEVEL;
+
+	init_QTree_Node(qtree, 0);
 	return qtree;
 }
 
-QTree *clear_qtree(QTree *qtree){
-	int size = qtree->size;
-	free(qtree->arr);
-	free(qtree);
-	return init_qtree(size);
+void clear_qtree(QTree *qtree){
+	
 }
-QTree *clear_qtree(QTree *qtree, int size){
-	if(size < 500){
-		size = 500;
+
+
+int construct_qtree(QTree *qtree, Planet *planets, int size){
+	int inserted = 0; 
+	for(int i = 0; i < size, i++){
+		if(insert_planet(qtree, planets, i)){
+			inserted++;
+		}
 	}
-	free(qtree->arr);
-	free(qtree);
-	return init_qtree(size);
 }
 
-void construct_qtree(QTree *qtree, Planet *planets, int size){
-	for(int i = 0; i < size; i++){
-		insert_planet(qtree, planets + i);
-	}
-
-}
-
-void insert_planet(QTree *qtree, Planet *planet){
+bool insert_planet(QTree *qtree, Planet *planets, int index){
 	bool inserted = false;
 	int curr = 0;
 	float size = (float)qtree->size;
 	// up down r l
 	float bound[4] = {size,-size,size,-size};
-	Vec pos = planet->pos;
-	Planet temp;
-	static int maxlevel = 0;
-	int level = 0;
+	Vec pos = planets[index].pos;
+	QTree_Node *nodes = qtree->arr;
+
+
 	if(abs(pos.x)> size || abs(pos.y) > size){
+		planets[index].mass = -1;
 		return;
 	}
-
-	int index;
 	while(!inserted){
-		if(	qtree->arr[curr].mass == -1 ||
-			qtree->arr[curr].mass == 0){
-			qtree->arr[curr].pos = planet->pos;
-			qtree->arr[curr].dir = planet->dir;
-			qtree->arr[curr].r = planet->r;
-			qtree->arr[curr].mass = planet->mass;
-			inserted = true;
-		}else if(qtree->arr[curr].mass > 0){
-			if((curr + 1) * 4 >= qtree->arr_size){
-				qtree->arr = (Planet*) realloc(qtree->arr,
-						((qtree->arr_size + (qtree->arr_size * 4))) * sizeof(Planet));
-				memset(qtree->arr + qtree->arr_size,
-						0,qtree->arr_size * 4 * sizeof(Planet));
-				qtree->arr_size += qtree->arr_size * 4;
-			}
+		if(!nodes[curr].is_split){
+			if(nodes[curr].number >= __QTREE_PLANETS_PER_QUAD){
+				split_node(qtree, planets, curr);
+				nodes[curr].is_split = true;
 
-			temp = qtree->arr[curr];
-			float dist = sqrt(pow(temp.pos.y - planet->pos.y,2) + pow(temp.pos.x - planet->pos.x,2));
-			if(dist < temp.r + planet->r){
-				if(temp.mass > qtree->arr[curr].mass){
-					qtree->arr[curr].pos.x = planet->pos.x;
-					qtree->arr[curr].pos.y = planet->pos.y;
-				}else{
-			
-				}
-				float mass1 = planet->mass;
-				float mass2 = qtree->arr[curr].mass;				
-				float dirx = qtree->arr[curr].dir.x * mass1 +
-						      planet->dir.x * mass2;
-				float diry = qtree->arr[curr].dir.y * mass1+
-						      planet->dir.y * mass2;
-				qtree->arr[curr].dir.x = dirx / (mass2 + mass1);
-				qtree->arr[curr].dir.y = diry / (mass2 + mass1);
-
-				qtree->arr[curr].mass = planet->mass + temp.mass;
-				qtree->arr[curr].r = log2f(qtree->arr[curr].mass) * 0.20;
-				inserted = true;			
 			}else{
-				qtree->arr[curr].mass = -2;
-				index = 4 * curr + 1 + get_quad(temp.pos,bound);
-				qtree->arr[index] = temp;
+				Vec temp;
+				int dist;
+				for(int i = 0; i < nodes[curr].number){
+					temp = planets[nodes[curr].inside[i]].pos;
+					dist = sqrt(pow(temp.x - pos.x,2.0) + pow(temp.y - pos.y,2.0));
+					int curr_r = planets[nodes[curr.inside[i]]].r;
+					int temp_r = planets[index].r;
+					if(dist < curr_r + temp.r){
+						float mass1 = planets[nodes[curr].inside[i]].mass;
+						float mass2 = planets[index].mass;	
+
+						if(mass1 > mass2)
+						{
+							planets[index].pos.x = planets[temp].pos.x;
+							planets[index].pos.y = planets[temp].pos.y;
+						}
+						qtree->arr[temp] = index;
+
+								
+						float dirx = planets[index].dir.x * mass1 +
+									 planets[temp].dir.x * mass2;
+									
+						float diry = planets[index].dir.y * mass1 +
+									 planets[temp].dir.y * mass2;
+
+						planets[index].dir.x = dirx / (mass2 + mass1);
+						planets[index].dir.y = diry / (mass2 + mass1);
+						planets[index].mass = planets[index].mass + planets[temp].mass;
+
+						planets[index].radius = log2f(planets[temp].mass) * 0.18;;
+						planets[temp].mass = -1;
+					
+						inserted = true;
+						return false;		
+					}
+				
+				}
+				nodes[curr].inside[nodes[curr].number] = index;
+				nodes[curr].number++;
+				inserted = true;
 			}
-
+		}else{
+			int quad = set_bound_get_quad(pos, bound);
+			switch(quad){
+				case 0:
+					curr = nodes[curr].nw;
+					break;
+				case 1:
+					curr = nodes[curr].ne;
+					break;
+				case 2:
+					curr = nodes[curr].sw;
+					break;
+				case 3:
+					curr = nodes[curr].se;
+					break;
+				default:
+			}
 		}
-		if(level > 13){
-			inserted = true;
-			printf("tree to deep!\n");
-		}
-		level++;
-		curr = 4 * curr + 1 + set_bound_get_quad(pos, bound); 
-
-		
 	}
-	if(level > maxlevel){
-		printf("maxlevel:%d\n",maxlevel);
-		maxlevel = level;
-	}
-	qtree->tree_size ++;
-
+	
+	return true;
 }
+
+void split_node(QTree *qtree, Planet *planets, int node_index){
+	if(qtree->number_of_nodes + 4 >= qtree->number_of_nodes){
+		qtree->arr = (QTree_Node*) realloc(qtree->arr_size * 2, sizeof(QTree_Node));
+	}
+	
+	QTree_Node *nodes = qtree->arr;
+	int number_of_nodes = qtree->number_of_nodes;
+	for(int i = 0; i < 4; i++){
+		init_QTree_Node(qtree, number_of_nodes + i);
+	}
+
+	for(int i = 0; i < __QTREE_PLANETS_PER_QUAD; i++){
+			int quad = get_quad(pos, bound);
+			int index = number_of_nodes + quad;
+			
+			nodes[index].inside[nodes[index].number] = nodes[node_index].inside[i];
+			nodes[index].number++;
+	}
+	
+	nodes[node_index].nw = number_of_nodes + 0;
+	nodes[node_index].ne = number_of_nodes + 1;
+	nodes[node_index].sw = number_of_nodes + 2;
+	nodes[node_index].se = number_of_nodes + 3;
+
+
+	qtree->number_of_nodes += 4;
+}
+
+void init_QTree_Node(QTree *qtree, int index){
+	qtree->arr[index].is_split = false;
+	qtree->arr[index].nw = -1; 
+	qtree->arr[index].ne = -1; 
+	qtree->arr[index].sw = -1; 
+	qtree->arr[index].se = -1; 
+	qtree->number = 0;
+}
+
 
 int get_quad(Vec pos, float bound[4]){
 		if(pos.x >= (bound[3] + bound[2])/2.0 && 
@@ -135,24 +179,23 @@ int get_quad(Vec pos, float bound[4]){
 		return 0;
 }
 
-int collaps_tree(QTree *qtree, PlanetsArr* container){
-	int j = 0;
-	for(int i = 0; i < qtree->arr_size; i++){
-		if(qtree->arr[i].mass > 0){
-			container->planets[j] = qtree->arr[i];
-			j++;
-		}
-	
-	}
-	int delta  =container->size_arr-1 - j;
-	if(delta >= PLANET_BLOCK_N){ 
-		container->size_arr = container->size_arr - (delta -delta%PLANET_BLOCK_N);		
-		container->planets = (Planet*) realloc(container->planets,container->size_arr * sizeof(Planet));
+int collaps_tree(QTree *qtree, Planet* ,int curr, int index){
+	if(qtree->arr[curr].is_split){
 
+		index = collaps_tree(qtree,planets,qtree->arr[curr].ne, index);
+		index = collaps_tree(qtree,planets,qtree->arr[curr].nw, index);
+		index = collaps_tree(qtree,planets,qtree->arr[curr].se, index);
+		index = collaps_tree(qtree,planets,qtree->arr[curr].sw, index);
+
+	}else{
+		int j = 0;
+		for(int i = 0; i < qtree->arr[curr].number; i++){
+			j  = qtree->arr[curr].inside[i];
+			planets_out[index + i] = planets_in[j];
+		}
+		index += qtree->arr[curr].number;
 	}
-	
-	qtree->tree_size = 0;
-	return j;
+	return index;
 }
 
 

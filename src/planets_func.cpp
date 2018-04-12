@@ -20,13 +20,22 @@ void create_random_planet(PlanetsArr *container, PConfig *pconfig){
 		planets[container->number].pos.y = (pconfig->screen.dim.height/2.0) +
 							cosf(alpha) * dist_from_center * 
 							pow(-1,rand()%2);
+	
+		float speed = pconfig->planet.speed;
+		float dy = -((pconfig->screen.dim.width)/2 - planets[container->number].pos.x);
+		float dx = pconfig->screen.dim.height/2 - planets[container->number].pos.y;
+	
+		float dist = sqrt(dy * dy + dx * dx)*__DIST;
+
+		planets[container->number].dir.x = dx * (speed / (dist));
+		planets[container->number].dir.y = dy * (speed / (dist));
 
 		int m_max = (int)pconfig->planet.mass_max;
 		int m_min = (int)pconfig->planet.mass_min;
 		planets[container->number].mass = (rand()%((m_max-m_min)*1000))/1000.0+m_min;
 
-		if(rand()%1000 == 0){
-			planets[container->number].mass *= 1000;
+		if(rand()%2000 == 0){
+			planets[container->number].mass *= 10000;
 		}
 		planets[container->number].r = log2f(planets[container->number].mass) * 0.20;
 
@@ -46,36 +55,6 @@ void create_random_planet(PlanetsArr *container, PConfig *pconfig){
 	if(count > 200){
 		printf("count:%d\n",count);
 	}
-	/*
-
-	if(newPlanet == NULL){
-		printf("Could not create random planet!\n");
-	}
-	int r = (int) pconfig->planet.r;
-
-	float dist_from_center = (rand()%(r * 1000))/1000.0+__MIN_R;
-	float alpha = (((rand()%(90*100))/100.0) * M_PI)/180.0;
-	newPlanet->pos.x = (pconfig->screen.dim.width/2.0) + sinf(alpha) * dist_from_center * pow(-1,rand()%2);
-	newPlanet->pos.y = (pconfig->screen.dim.height/2.0) + cosf(alpha) * dist_from_center * pow(-1,rand()%2);
-
-	float dy = -((pconfig->screen.dim.width)/2 - newPlanet->pos.x);
-	float dx = pconfig->screen.dim.height/2 - newPlanet->pos.y;
-	
-	float dist = sqrt(dy * dy + dx * dx)*__DIST;
-	float speed = pconfig->planet.speed;
-	
-	newPlanet->dir.x = dx * (speed / (dist * dist));
-	newPlanet->dir.y = dy * (speed / (dist * dist));
-
-	int m_max = (int)pconfig->planet.mass_max;
-	int m_min = (int)pconfig->planet.mass_min;
-	newPlanet->mass = (rand()%((m_max-m_min)*1000))/1000.0+m_min;
-
-	if(rand()%1000 == 0){
-		newPlanet->mass *= 1000;
-	}
-	newPlanet->r = log2f(newPlanet->mass) * 0.18;
-*/
 }
 
 PlanetsArr* init_planets(){
@@ -113,12 +92,12 @@ void fill_planets(PlanetsArr* container, PConfig *pconfig){
 	//point to the array that holdes all the planet structures
 	container->planets[0].pos.x = pconfig->screen.dim.width/2;
 	container->planets[0].pos.y = pconfig->screen.dim.height/2;
-	container->planets[0].dir.x = 20;
+	container->planets[0].dir.x = 0;
 	container->planets[0].dir.y = 0;
 
 	container->planets[0].mass = __SEEDMASS;
 
-	container->planets[0].r = log2f(container->planets[0].mass ) * 0.20;
+	container->planets[0].r = log2f(container->planets[0].mass ) * 0.18;
 
 	pthread_mutex_unlock(&container->planetsMutex);
 }

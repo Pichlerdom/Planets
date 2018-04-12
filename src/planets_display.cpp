@@ -67,6 +67,12 @@ void* main_display_loop(void* arguments){
 	screenpos.y = container->planets[find_biggest_mass(container)].pos.y * pconfig->scale - pconfig->screen.dim.height/2;
 	screenpos.x = container->planets[find_biggest_mass(container)].pos.x * pconfig->scale- pconfig->screen.dim.width/2;
 
+	bool upkeydown = false;       
+   	bool downkeydown = false;      
+   	bool rightkeydown = false;      
+   	bool leftkeydown = false;
+	bool drawtree = false;
+	bool draw_speed = false;
 	int mousex = 0;
 int mousey = 0;
 int retval;
@@ -91,11 +97,60 @@ int retval;
 						pconfig->scale /= 1.1;
 					}
 				break;
-				case SDL_MOUSEBUTTONUP:
-					screenpos.x += (mousex / pconfig->scale) - pdisplay->pos.x - DEFAULT_SCREEN_WIDTH/2;
-					screenpos.y += (mousey / pconfig->scale) - pdisplay->pos.y  - DEFAULT_SCREEN_HEIGHT/2;
+				case SDL_KEYDOWN:
+					switch( e.key.keysym.sym ){
+						case SDLK_UP:
+								upkeydown = true;
+							break;
+						case SDLK_DOWN:
+								downkeydown = true;
+							break;
+						case SDLK_RIGHT:
+								rightkeydown = true;
+							break;
+						case SDLK_LEFT:
+								leftkeydown = true;
+							break;
+						case SDLK_t:	
+								drawtree = !drawtree;
+							break;
+						case SDLK_s:
+								draw_speed = !draw_speed;
+							break;
+						default:
+							break;
+					}
+				break;
+				case SDL_KEYUP:
+					switch( e.key.keysym.sym ){
+						case SDLK_UP:
+								upkeydown = false;
+							break;
+						case SDLK_DOWN:
+								downkeydown = false;
+							break;
+						case SDLK_RIGHT:
+								rightkeydown = false;
+							break;
+						case SDLK_LEFT:
+								leftkeydown = false;
+							break;
+						default:
+							break;
+					}
 				break;
 			}
+		}
+		
+		if(leftkeydown){
+			screenpos.x -= 5/pconfig->scale;
+		}else if(rightkeydown){
+			screenpos.x += 5/pconfig->scale;
+		}
+		if(upkeydown){
+			screenpos.y -= 5/pconfig->scale;
+		}else if(downkeydown){
+			screenpos.y += 5/pconfig->scale;
 		}
 
 		
@@ -107,20 +162,19 @@ int retval;
 		SDL_SetRenderDrawColor( pdisplay->renderer, 0x00, 0x00, 0x00, 0xFF );
 		SDL_RenderClear( pdisplay->renderer);
 		
-	
-		retval = pthread_mutex_lock(&(args->qtreeMutex));
-		printf("%d\n",args->qtree->arr_size);
+		if(drawtree){
+		pthread_mutex_lock(&(args->qtreeMutex));
 		
-		if(args->qtree->arr_size > 0){
+		if(args->qtree->arr_size > 0 ){
 
-			float bound[4] = {args->qtree->size,-args->qtree->size,args->qtree->size,-args->qtree->size};
-			draw_QTree(pdisplay, args->qtree, pconfig->scale, bound,0);
+				float bound[4] = {args->qtree->size,-args->qtree->size,args->qtree->size,-args->qtree->size};
+				draw_QTree(pdisplay, args->qtree, pconfig->scale, bound,0);
 
-		}	
-		
-		pthread_mutex_unlock(&(args->qtreeMutex));
-
-		draw_planets(pdisplay, container, pconfig->scale);
+			}	
+			
+			pthread_mutex_unlock(&(args->qtreeMutex));
+		}
+		draw_planets(pdisplay, container, pconfig->scale, draw_speed);
 		
 		SDL_SetRenderDrawColor( pdisplay->renderer, 0xff, 0xff, 0xff, 0xFF );
 		sprintf(tempstr,"FPS:%.2f",1000.0/args->calctime);
@@ -131,9 +185,17 @@ int retval;
 		SDL_RenderCopy(pdisplay->renderer, texture, NULL, &textrect);
 		
 		SDL_SetRenderDrawColor( pdisplay->renderer, 0xff, 0xff, 0xff, 0xFF );
-		sprintf(tempstr,"Number:%d",  container->number);
+		sprintf(tempstr,"QTREE_FPS:%.2f",1000.0/args->qtree_time);
 		get_text_and_rect(pdisplay->renderer,
 						  10, 30,
+						  tempstr,
+		font, &texture, &textrect);
+		SDL_RenderCopy(pdisplay->renderer, texture, NULL, &textrect);
+		
+		SDL_SetRenderDrawColor( pdisplay->renderer, 0xff, 0xff, 0xff, 0xFF );
+		sprintf(tempstr,"Number:%d",  container->number);
+		get_text_and_rect(pdisplay->renderer,
+						  10, 50,
 						  tempstr,
 		font, &texture, &textrect);
 		SDL_RenderCopy(pdisplay->renderer, texture, NULL, &textrect);
@@ -183,7 +245,7 @@ void get_text_and_rect(	SDL_Renderer *renderer,
     rect->h = text_height;
 }
 
-void draw_planets(Display *display, PlanetsArr *container, float scale){
+void draw_planets(Display *display, PlanetsArr *container, float scale, bool draw_speed){
 	pthread_mutex_lock(&container->planetsMutex);
 	for(int i = 0; i <  container->number; i++){
 	
@@ -202,9 +264,11 @@ void draw_planets(Display *display, PlanetsArr *container, float scale){
 		
 		if(container->planets[i].mass > 0){ 
 			SDL_SetRenderDrawColor(display->renderer, 0xFF, 0x00, 0xFF, 0x55);
-			SDL_RenderDrawLine(display->renderer,
+			if(draw_speed){
+				SDL_RenderDrawLine(display->renderer,
 								pos.x, pos.y,
-								pos.x + dir.x, pos.y + dir.y);
+								pos.x + dir.x * scale, pos.y + dir.y * scale);
+			}
 		}
 	}
 	pthread_mutex_unlock(&container->planetsMutex);
@@ -234,11 +298,10 @@ void draw_planet(Display *display, Vec *pos, float r){
 	}
 }
 void draw_QTree(Display *display, QTree *qtree ,float scale, float bound[4], int curr){
-	if(qtree->arr[curr].mass == -1 ||
-		qtree->arr[curr].mass == 0 ){
+	if(qtree->arr[curr] == -1){
 		
 		SDL_SetRenderDrawColor(display->renderer, 0x00, 0xff, 0xff, 0xff);
-	}else if (qtree->arr[curr].mass == -2){
+	}else if (qtree->arr[curr] == -2){
 		float bounds[4];
 		bounds[0] = bound[0];
 		bounds[1] = (bound[0] + bound[1])/2.0;

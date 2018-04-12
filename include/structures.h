@@ -35,16 +35,28 @@ typedef struct {
 }PConfig;
 
 typedef struct{
+	bool is_split;
+	int nw;
+	int sw;
+	int se;
+	int ne;
+	int number;
+	int inside[__QTREE_PLANETS_PER_QUAD];
+}QTree_Node;
+
+typedef struct{
 	int arr_size;
-	int tree_size;
-	Planet *arr;
+	QTree_Node *arr;
+	int number_of_nodes;
 	float size;
+	int max_level;
 }QTree;
 
 typedef struct{
 	PlanetsArr *container;
 	PConfig *pconfig;
 	uint32_t calctime;
+	uint32_t qtree_time;
 	QTree *qtree;
 	pthread_mutex_t qtreeMutex;
 }ThreadArgs;
