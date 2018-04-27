@@ -63,6 +63,15 @@ void* main_display_loop(void* arguments){
 	
 	Vec screenpos;
 
+	struct timespec *wait;
+	wait = (struct timespec *)(malloc(sizeof(struct timespec)));
+	wait->tv_sec  = 0;
+	wait->tv_nsec = 10 * 1000000;
+
+    float bound[4];
+    QTree_Node *qtree_nodes_buffer = NULL;
+
+	PlanetsArr planet_buffer;
 	
 	screenpos.y = container->planets[find_biggest_mass(container)].pos.y * pconfig->scale - pconfig->screen.dim.height/2;
 	screenpos.x = container->planets[find_biggest_mass(container)].pos.x * pconfig->scale- pconfig->screen.dim.width/2;
@@ -162,20 +171,34 @@ int retval;
 		SDL_SetRenderDrawColor( pdisplay->renderer, 0x00, 0x00, 0x00, 0xFF );
 		SDL_RenderClear( pdisplay->renderer);
 		
+
+
 		if(drawtree){
-		pthread_mutex_lock(&(args->qtreeMutex));
-		
-		if(args->qtree->arr_size > 0 ){
-
-				float bound[4] = {args->qtree->size,-args->qtree->size,args->qtree->size,-args->qtree->size};
-				draw_QTree(pdisplay, args->qtree, pconfig->scale, bound,0);
-
-			}	
+			if(pthread_mutex_timedlock(&(args->qtreeMutex),wait) == 0){
+				qtree_nodes_buffer = (QTree_Node*) realloc(qtree_nodes_buffer,args->qtree->arr_size * sizeof(QTree_Node));
+				memcpy(qtree_nodes_buffer,args->qtree->arr,args->qtree->arr_size * sizeof(QTree_Node));	
+				pthread_mutex_unlock(&(args->qtreeMutex));
+			}
 			
-			pthread_mutex_unlock(&(args->qtreeMutex));
+			if(qtree_nodes_buffer != NULL){
+				bound[0] = args->qtree->size ;
+				bound[1] = -args->qtree->size;
+				bound[2] = args->qtree->size ;
+				bound[3] = -args->qtree->size;
+					
+				draw_QTree(pdisplay, qtree_nodes_buffer, pconfig->scale, bound,0);
+			}
 		}
-		draw_planets(pdisplay, container, pconfig->scale, draw_speed);
+	if(pthread_mutex_timedlock(&(container->planetsMutex),wait) == 0){
+			planet_buffer.planets = (Planet*) realloc(planet_buffer.planets,container->number * sizeof(Planet));
+			memcpy(planet_buffer.planets,container->planets,container->number * sizeof(Planet));
+			planet_buffer.number = container->number;
+		pthread_mutex_unlock(&(container->planetsMutex));
+		}
 		
+		if(planet_buffer.planets != NULL){
+			draw_planets(pdisplay, &planet_buffer, pconfig->scale, draw_speed);
+		}
 		SDL_SetRenderDrawColor( pdisplay->renderer, 0xff, 0xff, 0xff, 0xFF );
 		sprintf(tempstr,"FPS:%.2f",1000.0/args->calctime);
 		get_text_and_rect(pdisplay->renderer,
@@ -246,7 +269,6 @@ void get_text_and_rect(	SDL_Renderer *renderer,
 }
 
 void draw_planets(Display *display, PlanetsArr *container, float scale, bool draw_speed){
-	pthread_mutex_lock(&container->planetsMutex);
 	for(int i = 0; i <  container->number; i++){
 	
 		Vec pos = container->planets[i].pos;
@@ -271,9 +293,6 @@ void draw_planets(Display *display, PlanetsArr *container, float scale, bool dra
 			}
 		}
 	}
-	pthread_mutex_unlock(&container->planetsMutex);
-
-	
 }
 
 
@@ -297,47 +316,48 @@ void draw_planet(Display *display, Vec *pos, float r){
 		}
 	}
 }
-void draw_QTree(Display *display, QTree *qtree ,float scale, float bound[4], int curr){
-	if(qtree->arr[curr] == -1){
+
+void draw_QTree(Display *display, QTree_Node *nodes, float scale, float bound[4], int curr){
+	if(!nodes[curr].is_split){
 		
-		SDL_SetRenderDrawColor(display->renderer, 0x00, 0xff, 0xff, 0xff);
-	}else if (qtree->arr[curr] == -2){
+		SDL_SetRenderDrawColor(display->renderer, 0x00, 0xff, 0x00, 0x44);
+	}else{
 		float bounds[4];
 		bounds[0] = bound[0];
 		bounds[1] = (bound[0] + bound[1])/2.0;
 		bounds[2] = bound[2];
 		bounds[3] = (bound[3] + bound[2])/2.0; 
  
-		draw_QTree(display,qtree, scale,bounds, curr * 4 + 1);
+		draw_QTree(display,nodes, scale,bounds, nodes[curr].ne);
 		
 		bounds[0] = bound[0];
 		bounds[1] = (bound[0] + bound[1])/2.0;
 		bounds[2] = (bound[3] + bound[2])/2.0;
 		bounds[3] = bound[3];  
-		draw_QTree(display,qtree, scale,bounds, curr * 4 + 2);
+		draw_QTree(display,nodes, scale,bounds,nodes[curr].nw);
 		
 		
 		bounds[0] = (bound[0] + bound[1])/2.0;
 		bounds[1] = bound[1];
 		bounds[2] = bound[2];
 		bounds[3] = (bound[3] + bound[2])/2.0;  
-		draw_QTree(display,qtree,scale, bounds, curr * 4 + 3);
+		draw_QTree(display,nodes,scale, bounds, nodes[curr].se);
 		
 		bounds[0] = (bound[0] + bound[1])/2.0; 
 		bounds[1] = bound[1];
 		bounds[2] = (bound[3] + bound[2])/2.0;
 		bounds[3] = bound[3]; 
-		draw_QTree(display,qtree,scale,bounds, curr * 4 + 4);
+		draw_QTree(display,nodes,scale,bounds, nodes[curr].sw);
 
 		SDL_SetRenderDrawColor(display->renderer, 0xff, 0x00, 0xff, 0xff);
 
 
-	} else {
-		SDL_SetRenderDrawColor(display->renderer, 0x00, 0xff, 0x00, 0xff);
 	}
+	
+	
 	SDL_Rect rect;
-	rect.x = bound[3] * scale - display->pos.x;  
-	rect.y = bound[0] * scale - display->pos.y;
+	rect.x = bound[3] * scale - display->pos.x + scale * (__QTREE_SIZE - DEFAULT_SCREEN_WIDTH)/2.0;  
+	rect.y = bound[0] * scale - display->pos.y + scale * (__QTREE_SIZE - DEFAULT_SCREEN_HEIGHT)/2.0;
 	rect.w = (bound[2] - bound[3]) * scale;
 	rect.h = (bound[1] - bound[0]) * scale;
 	SDL_RenderDrawRect(display->renderer, &rect);

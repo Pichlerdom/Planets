@@ -35,9 +35,9 @@ void create_random_planet(PlanetsArr *container, PConfig *pconfig){
 		planets[container->number].mass = (rand()%((m_max-m_min)*1000))/1000.0+m_min;
 
 		if(rand()%2000 == 0){
-			planets[container->number].mass *= 10000;
+			planets[container->number].mass *= 100;
 		}
-		planets[container->number].r = log2f(planets[container->number].mass) * 0.20;
+		planets[container->number].r = (sqrt(planets[container->number].mass) )/100;//log2f(planets[container->number].mass) * 0.20;
 
 		found = true;
 		for(int i = 0; i < container->number - 1; i++){
@@ -97,7 +97,7 @@ void fill_planets(PlanetsArr* container, PConfig *pconfig){
 
 	container->planets[0].mass = __SEEDMASS;
 
-	container->planets[0].r = log2f(container->planets[0].mass ) * 0.18;
+	container->planets[0].r =(sqrt(container->planets[0].mass))/100;//log2f(container->planets[0].mass ) * 0.18;
 
 	pthread_mutex_unlock(&container->planetsMutex);
 }

@@ -3,7 +3,7 @@
 
 #include "includes.h"
 
-#define __QTREE_PLANETS_PER_QUAD 10
+#define __QTREE_PLANETS_PER_QUAD 32
 
 #include "structures.h"
 

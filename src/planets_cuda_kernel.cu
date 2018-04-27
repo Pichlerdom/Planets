@@ -1,4 +1,6 @@
 
+
+
 #include "planets.h"
 
 __global__ void move_planets_kernel(Planet* d_planets){
@@ -25,8 +27,8 @@ __global__ void hit_detection(Planet* d_planets){
 	if( mass2 > 0 && mass1 > 0 && r1 > r2 && 
 		dist < (r2 + r1)){
 	
-		d_planets[x].dir.x = (d_planets[x].dir.x * mass1 + d_planets[y].dir.x * mass2)/(mass2 + mass1);
-		d_planets[x].dir.y = (d_planets[x].dir.y * mass1 + d_planets[y].dir.y * mass2)/(mass2 + mass1);
+		d_planets[x].dir.x = ((d_planets[x].dir.x * mass1 + d_planets[y].dir.x * mass2)/(mass2 + mass1) )* __MOVE;
+		d_planets[x].dir.y = ((d_planets[x].dir.y * mass1 + d_planets[y].dir.y * mass2)/(mass2 + mass1) )* __MOVE;
 		d_planets[x].mass += d_planets[y].mass;
 		
 		d_planets[x].r = log2f(d_planets[x].mass) * 0.18;
@@ -85,13 +87,13 @@ __global__ void calculate_f_sum(Planet* d_planets,Vec *d_f){
 	}	
 	__syncthreads();
 	if(sum_x != 0.0){
-		d_planets[gx].dir.x += sum_x;
+		d_planets[gx].dir.x += sum_x* __MOVE;
 	}
 	
 	__syncthreads();
 	if(sum_y != 0.0){
 		
-		d_planets[gx].dir.y += sum_y;
+		d_planets[gx].dir.y += sum_y* __MOVE;
 	}
 }
 

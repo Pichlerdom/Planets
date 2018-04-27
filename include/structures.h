@@ -15,6 +15,7 @@ typedef struct{
 	int size_arr;
 	int number;
 	bool quit;
+	bool modified;
 }PlanetsArr;
 
 typedef struct {
